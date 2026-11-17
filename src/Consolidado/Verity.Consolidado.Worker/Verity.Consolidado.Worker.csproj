@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <RootNamespace>Verity.Consolidado.Worker</RootNamespace>
+    <AssemblyName>Verity.Consolidado.Worker</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Compartilhado\Verity.Compartilhado.Observabilidade\Verity.Compartilhado.Observabilidade.csproj" />
+    <ProjectReference Include="..\Verity.Consolidado.Infraestrutura\Verity.Consolidado.Infraestrutura.csproj" />
+  </ItemGroup>
+
+</Project>

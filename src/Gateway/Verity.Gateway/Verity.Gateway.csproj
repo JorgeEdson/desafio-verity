@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Verity.Gateway</RootNamespace>
+    <AssemblyName>Verity.Gateway</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Yarp.ReverseProxy" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Compartilhado\Verity.Compartilhado.Hospedagem\Verity.Compartilhado.Hospedagem.csproj" />
+    <ProjectReference Include="..\..\Compartilhado\Verity.Compartilhado.Observabilidade\Verity.Compartilhado.Observabilidade.csproj" />
+  </ItemGroup>
+
+</Project>

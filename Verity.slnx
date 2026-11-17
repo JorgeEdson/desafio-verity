@@ -1,0 +1,30 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Compartilhado/">
+    <Project Path="src/Compartilhado/Verity.Compartilhado/Verity.Compartilhado.csproj" />
+    <Project Path="src/Compartilhado/Verity.Compartilhado.Hospedagem/Verity.Compartilhado.Hospedagem.csproj" />
+    <Project Path="src/Compartilhado/Verity.Compartilhado.Infraestrutura/Verity.Compartilhado.Infraestrutura.csproj" />
+    <Project Path="src/Compartilhado/Verity.Compartilhado.Observabilidade/Verity.Compartilhado.Observabilidade.csproj" />
+    <Project Path="src/Compartilhado/Verity.Compartilhado.Seguranca/Verity.Compartilhado.Seguranca.csproj" />
+  </Folder>
+  <Folder Name="/src/Consolidado/">
+    <Project Path="src/Consolidado/Verity.Consolidado.Api/Verity.Consolidado.Api.csproj" />
+    <Project Path="src/Consolidado/Verity.Consolidado.Core/Verity.Consolidado.Core.csproj" />
+    <Project Path="src/Consolidado/Verity.Consolidado.Infraestrutura/Verity.Consolidado.Infraestrutura.csproj" />
+    <Project Path="src/Consolidado/Verity.Consolidado.Worker/Verity.Consolidado.Worker.csproj" />
+  </Folder>
+  <Folder Name="/src/Gateway/">
+    <Project Path="src/Gateway/Verity.Gateway/Verity.Gateway.csproj" />
+  </Folder>
+  <Folder Name="/src/Lancamentos/">
+    <Project Path="src/Lancamentos/Verity.Lancamentos.Api/Verity.Lancamentos.Api.csproj" />
+    <Project Path="src/Lancamentos/Verity.Lancamentos.Core/Verity.Lancamentos.Core.csproj" />
+    <Project Path="src/Lancamentos/Verity.Lancamentos.Infraestrutura/Verity.Lancamentos.Infraestrutura.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Verity.Consolidado.Testes/Verity.Consolidado.Testes.csproj" />
+    <Project Path="tests/Verity.Gateway.Testes/Verity.Gateway.Testes.csproj" />
+    <Project Path="tests/Verity.Lancamentos.Testes/Verity.Lancamentos.Testes.csproj" />
+    <Project Path="tests/Verity.Testes.Compartilhado/Verity.Testes.Compartilhado.csproj" />
+  </Folder>
+</Solution>

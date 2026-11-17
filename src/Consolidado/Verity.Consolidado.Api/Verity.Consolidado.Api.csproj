@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Verity.Consolidado.Api</RootNamespace>
+    <AssemblyName>Verity.Consolidado.Api</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Compartilhado\Verity.Compartilhado.Hospedagem\Verity.Compartilhado.Hospedagem.csproj" />
+    <ProjectReference Include="..\..\Compartilhado\Verity.Compartilhado.Seguranca\Verity.Compartilhado.Seguranca.csproj" />
+    <ProjectReference Include="..\..\Compartilhado\Verity.Compartilhado.Observabilidade\Verity.Compartilhado.Observabilidade.csproj" />
+    <ProjectReference Include="..\Verity.Consolidado.Infraestrutura\Verity.Consolidado.Infraestrutura.csproj" />
+  </ItemGroup>
+
+</Project>

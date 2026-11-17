@@ -1,0 +1,157 @@
+name: verity
+
+x-telemetria: &telemetria
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://aspire-dashboard:18889
+  OTEL_METRIC_EXPORT_INTERVAL: "5000"
+  OTEL_BSP_SCHEDULE_DELAY: "1000"
+  OTEL_BLRP_SCHEDULE_DELAY: "1000"
+
+x-consolidado-api: &consolidado-api
+  build:
+    context: .
+    args:
+      PROJETO: src/Consolidado/Verity.Consolidado.Api/Verity.Consolidado.Api.csproj
+      ASSEMBLY: Verity.Consolidado.Api
+  restart: on-failure
+  environment:
+    <<: *telemetria
+    ASPNETCORE_ENVIRONMENT: Development
+    ConnectionStrings__Consolidado: Host=postgres;Port=5432;Database=consolidado_db;Username=consolidado;Password=consolidado
+    Autenticacao__Emissor: http://localhost:8081/realms/verity
+    Autenticacao__EnderecoDeMetadados: http://keycloak:8080/realms/verity/.well-known/openid-configuration
+    Autenticacao__Audiencia: verity-api
+    Autenticacao__ExigirHttpsNosMetadados: "false"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.2
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USUARIO:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_SENHA:-admin}
+      KC_HOSTNAME: http://localhost:8081
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./infra/keycloak/realm-verity.json:/opt/keycloak/data/import/realm-verity.json:ro
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          read -r status <&3 &&
+          [[ "$$status" == *" 200 "* ]]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SENHA:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - dados-do-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4.1-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - ./infra/rabbitmq/verity.conf:/etc/rabbitmq/conf.d/20-verity.conf:ro
+      - ./infra/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.0
+    environment:
+      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "18888:18888"
+      - "4317:18889"
+
+  lancamentos-api:
+    build:
+      context: .
+      args:
+        PROJETO: src/Lancamentos/Verity.Lancamentos.Api/Verity.Lancamentos.Api.csproj
+        ASSEMBLY: Verity.Lancamentos.Api
+    environment:
+      <<: *telemetria
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Lancamentos: Host=postgres;Port=5432;Database=lancamentos_db;Username=lancamentos;Password=lancamentos
+      RabbitMq__Uri: amqp://lancamentos:lancamentos@rabbitmq:5672/
+      Autenticacao__Emissor: http://localhost:8081/realms/verity
+      Autenticacao__EnderecoDeMetadados: http://keycloak:8080/realms/verity/.well-known/openid-configuration
+      Autenticacao__Audiencia: verity-api
+      Autenticacao__ExigirHttpsNosMetadados: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  consolidado-worker:
+    build:
+      context: .
+      args:
+        PROJETO: src/Consolidado/Verity.Consolidado.Worker/Verity.Consolidado.Worker.csproj
+        ASSEMBLY: Verity.Consolidado.Worker
+    environment:
+      <<: *telemetria
+      DOTNET_ENVIRONMENT: Development
+      ConnectionStrings__Consolidado: Host=postgres;Port=5432;Database=consolidado_db;Username=consolidado;Password=consolidado
+      RabbitMq__Uri: amqp://consolidado:consolidado@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  consolidado-api-1: *consolidado-api
+
+  consolidado-api-2: *consolidado-api
+
+  gateway:
+    build:
+      context: .
+      args:
+        PROJETO: src/Gateway/Verity.Gateway/Verity.Gateway.csproj
+        ASSEMBLY: Verity.Gateway
+    environment:
+      <<: *telemetria
+      ASPNETCORE_ENVIRONMENT: Development
+      ReverseProxy__Clusters__lancamentos__Destinations__lancamentos1__Address: http://lancamentos-api:8080/
+      ReverseProxy__Clusters__consolidado__Destinations__consolidado1__Address: http://consolidado-api-1:8080/
+      ReverseProxy__Clusters__consolidado__Destinations__consolidado2__Address: http://consolidado-api-2:8080/
+    ports:
+      - "8080:8080"
+
+  k6:
+    image: grafana/k6:2.0.0
+    profiles: ["carga"]
+    working_dir: /scripts
+    volumes:
+      - ./tests/carga:/scripts
+
+volumes:
+  dados-do-postgres:

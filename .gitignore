@@ -1,0 +1,16 @@
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+TestResults/
+*.trx
+coverage*.xml
+coverage*.json
+
+.env
+
+docs/diagramas/*.tmp

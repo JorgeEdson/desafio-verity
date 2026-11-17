@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Verity.Lancamentos.Infraestrutura</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Compartilhado\Verity.Compartilhado.Infraestrutura\Verity.Compartilhado.Infraestrutura.csproj" />
+    <ProjectReference Include="..\Verity.Lancamentos.Core\Verity.Lancamentos.Core.csproj" />
+  </ItemGroup>
+
+</Project>

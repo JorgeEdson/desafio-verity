@@ -1,0 +1,116 @@
+{
+  "rabbit_version": "4.1.0",
+  "users": [
+    {
+      "name": "admin",
+      "password_hash": "ChssPYM3UhZU7a0JqQv8ubRXlJwISoMbOPRFn08mEb8iOHkR",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": [
+        "administrator"
+      ],
+      "limits": {}
+    },
+    {
+      "name": "lancamentos",
+      "password_hash": "Tl9gcXb6gmNIFrJBhyvbEllDGWgI6vR9XIt4beOvOJhVdYJP",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": [],
+      "limits": {}
+    },
+    {
+      "name": "consolidado",
+      "password_hash": "gpOktWFfRrsTQtC4SHekOarP0ZRkpYyZcamcSmQXJxGB9yLZ",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": [],
+      "limits": {}
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "admin",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "lancamentos",
+      "vhost": "/",
+      "configure": "^$",
+      "write": "^verity\\.lancamentos$",
+      "read": "^$"
+    },
+    {
+      "user": "consolidado",
+      "vhost": "/",
+      "configure": "^$",
+      "write": "^$",
+      "read": "^consolidado\\.lancamentos$"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "verity.lancamentos",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "verity.lancamentos.dlx",
+      "vhost": "/",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "consolidado.lancamentos",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-delivery-limit": 5,
+        "x-dead-letter-exchange": "verity.lancamentos.dlx"
+      }
+    },
+    {
+      "name": "consolidado.lancamentos.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "source": "verity.lancamentos",
+      "vhost": "/",
+      "destination": "consolidado.lancamentos",
+      "destination_type": "queue",
+      "routing_key": "lancamento.registrado",
+      "arguments": {}
+    },
+    {
+      "source": "verity.lancamentos.dlx",
+      "vhost": "/",
+      "destination": "consolidado.lancamentos.dlq",
+      "destination_type": "queue",
+      "routing_key": "",
+      "arguments": {}
+    }
+  ]
+}

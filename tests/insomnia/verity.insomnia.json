@@ -1,0 +1,1227 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-11-16T09:40:00.000Z",
+  "__export_source": "insomnia.desktop.app:v11.0.0",
+  "resources": [
+    {
+      "_id": "wrk_verity",
+      "_type": "workspace",
+      "parentId": null,
+      "name": "Verity — Fluxo de caixa",
+      "scope": "collection",
+      "description": "Roteiro de teste de ponta a ponta do desafio Verity pelo gateway (YARP), com autenticação no Keycloak.\n\nPré-requisito: `docker compose up -d --build` na raiz do repositório.\n\nExecute as pastas 01 a 09 em ordem pelo Collection Runner (recomendado: atraso de 500 ms entre requisições). A pasta 10 é manual e exige parar e iniciar containers; veja a descrição de cada requisição.\n\nDetalhes em tests/insomnia/README.md."
+    },
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "parentId": "wrk_verity",
+      "name": "Base Environment",
+      "data": {
+        "gateway_url": "http://localhost:8080",
+        "keycloak_url": "http://localhost:8081",
+        "realm": "verity",
+        "client_id": "verity-dev",
+        "usuario_loja_centro": "loja.centro",
+        "usuario_loja_praia": "loja.praia",
+        "senha_dos_usuarios": "Verity@2026!",
+        "token_loja_centro": "",
+        "token_loja_praia": "",
+        "execucao": "",
+        "leitura": "",
+        "data_hoje": "",
+        "data_retroativa": "",
+        "data_inicio_do_periodo": "",
+        "data_futura": ""
+      }
+    },
+    {
+      "_id": "fld_01",
+      "_type": "request_group",
+      "parentId": "wrk_verity",
+      "name": "01 · Preparação e saúde",
+      "description": "Gera as datas e o identificador desta execução e confirma que gateway e Keycloak estão no ar.",
+      "metaSortKey": 100,
+      "environment": {}
+    },
+    {
+      "_id": "req_001",
+      "_type": "request",
+      "parentId": "fld_01",
+      "name": "Gateway vivo",
+      "description": "Gera as variáveis da execução: datas no fuso America/Sao_Paulo e um identificador usado nas chaves de idempotência.",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/health/live",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 200,
+      "preRequestScript": "const formatar = instante => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(instante);\nconst diaDeslocado = dias => formatar(new Date(Date.now() + dias * 86400000));\ninsomnia.collectionVariables.set('execucao', String(Date.now()));\ninsomnia.collectionVariables.set('data_hoje', diaDeslocado(0));\ninsomnia.collectionVariables.set('data_retroativa', diaDeslocado(-3));\ninsomnia.collectionVariables.set('data_inicio_do_periodo', diaDeslocado(-6));\ninsomnia.collectionVariables.set('data_futura', diaDeslocado(2));",
+      "afterResponseScript": "insomnia.test('Gateway responde /health/live', () => insomnia.expect(insomnia.response.code).to.eql(200));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {}
+    },
+    {
+      "_id": "req_002",
+      "_type": "request",
+      "parentId": "fld_01",
+      "name": "Gateway pronto",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/health/ready",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 300,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Gateway responde /health/ready', () => insomnia.expect(insomnia.response.code).to.eql(200));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {}
+    },
+    {
+      "_id": "req_003",
+      "_type": "request",
+      "parentId": "fld_01",
+      "name": "Keycloak: descoberta OpenID",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.keycloak_url }}/realms/{{ _.realm }}/.well-known/openid-configuration",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 400,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\ninsomnia.test('Emissor é o endereço público do Keycloak', () =>\n    insomnia.expect(insomnia.response.json().issuer).to.eql(insomnia.collectionVariables.get('keycloak_url') + '/realms/' + insomnia.collectionVariables.get('realm')));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {}
+    },
+    {
+      "_id": "fld_02",
+      "_type": "request_group",
+      "parentId": "wrk_verity",
+      "name": "02 · Autenticação no Keycloak",
+      "description": "Obtém os tokens dos dois comerciantes de teste com o client verity-dev (password grant, somente desenvolvimento).",
+      "metaSortKey": 500,
+      "environment": {}
+    },
+    {
+      "_id": "req_004",
+      "_type": "request",
+      "parentId": "fld_02",
+      "name": "Token da loja.centro (c-001)",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.keycloak_url }}/realms/{{ _.realm }}/protocol/openid-connect/token",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/x-www-form-urlencoded"
+        }
+      ],
+      "metaSortKey": 600,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Keycloak emite o token', () => insomnia.expect(insomnia.response.code).to.eql(200));\nconst corpo = insomnia.response.json();\ninsomnia.collectionVariables.set('token_loja_centro', corpo.access_token);\nconst conteudo = JSON.parse(atob(corpo.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));\ninsomnia.test('Token traz o comerciante c-001', () => insomnia.expect(conteudo.comerciante_id).to.eql('c-001'));\ninsomnia.test('Token tem a audiência verity-api', () => insomnia.expect([].concat(conteudo.aud)).to.include('verity-api'));\ninsomnia.test('Token assinado com RS256', () => insomnia.expect(JSON.parse(atob(corpo.access_token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/'))).alg).to.eql('RS256'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/x-www-form-urlencoded",
+        "params": [
+          {
+            "name": "grant_type",
+            "value": "password"
+          },
+          {
+            "name": "client_id",
+            "value": "{{ _.client_id }}"
+          },
+          {
+            "name": "username",
+            "value": "{{ _.usuario_loja_centro }}"
+          },
+          {
+            "name": "password",
+            "value": "{{ _.senha_dos_usuarios }}"
+          },
+          {
+            "name": "scope",
+            "value": "openid"
+          }
+        ]
+      },
+      "authentication": {}
+    },
+    {
+      "_id": "req_005",
+      "_type": "request",
+      "parentId": "fld_02",
+      "name": "Token da loja.praia (c-002)",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.keycloak_url }}/realms/{{ _.realm }}/protocol/openid-connect/token",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/x-www-form-urlencoded"
+        }
+      ],
+      "metaSortKey": 700,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Keycloak emite o token', () => insomnia.expect(insomnia.response.code).to.eql(200));\nconst corpo = insomnia.response.json();\ninsomnia.collectionVariables.set('token_loja_praia', corpo.access_token);\nconst conteudo = JSON.parse(atob(corpo.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));\ninsomnia.test('Token traz o comerciante c-002', () => insomnia.expect(conteudo.comerciante_id).to.eql('c-002'));\ninsomnia.test('Token tem a audiência verity-api', () => insomnia.expect([].concat(conteudo.aud)).to.include('verity-api'));\ninsomnia.test('Token assinado com RS256', () => insomnia.expect(JSON.parse(atob(corpo.access_token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/'))).alg).to.eql('RS256'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/x-www-form-urlencoded",
+        "params": [
+          {
+            "name": "grant_type",
+            "value": "password"
+          },
+          {
+            "name": "client_id",
+            "value": "{{ _.client_id }}"
+          },
+          {
+            "name": "username",
+            "value": "{{ _.usuario_loja_praia }}"
+          },
+          {
+            "name": "password",
+            "value": "{{ _.senha_dos_usuarios }}"
+          },
+          {
+            "name": "scope",
+            "value": "openid"
+          }
+        ]
+      },
+      "authentication": {}
+    },
+    {
+      "_id": "req_006",
+      "_type": "request",
+      "parentId": "fld_02",
+      "name": "Senha incorreta é recusada (400 invalid_grant)",
+      "description": "Pela especificação do OAuth 2.0 (RFC 6749, seção 5.2), credenciais inválidas no password grant resultam em 400 com o erro invalid_grant.",
+      "method": "POST",
+      "url": "{{ _.keycloak_url }}/realms/{{ _.realm }}/protocol/openid-connect/token",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/x-www-form-urlencoded"
+        }
+      ],
+      "metaSortKey": 800,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Keycloak responde 400', () => insomnia.expect(insomnia.response.code).to.eql(400));\ninsomnia.test('Erro OAuth invalid_grant', () => insomnia.expect(insomnia.response.json().error).to.eql('invalid_grant'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/x-www-form-urlencoded",
+        "params": [
+          {
+            "name": "grant_type",
+            "value": "password"
+          },
+          {
+            "name": "client_id",
+            "value": "{{ _.client_id }}"
+          },
+          {
+            "name": "username",
+            "value": "{{ _.usuario_loja_centro }}"
+          },
+          {
+            "name": "password",
+            "value": "senha-errada"
+          }
+        ]
+      },
+      "authentication": {}
+    },
+    {
+      "_id": "fld_03",
+      "_type": "request_group",
+      "parentId": "wrk_verity",
+      "name": "03 · Segurança nas APIs",
+      "description": "As APIs validam o token por conta própria (o gateway não é fronteira de confiança).",
+      "metaSortKey": 900,
+      "environment": {}
+    },
+    {
+      "_id": "req_007",
+      "_type": "request",
+      "parentId": "fld_03",
+      "name": "Sem token → 401",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/lancamentos?inicio={{ _.data_hoje }}&fim={{ _.data_hoje }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 1000,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 401', () => insomnia.expect(insomnia.response.code).to.eql(401));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {}
+    },
+    {
+      "_id": "req_008",
+      "_type": "request",
+      "parentId": "fld_03",
+      "name": "Token adulterado → 401",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/consolidado/diario/{{ _.data_hoje }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 1100,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 401', () => insomnia.expect(insomnia.response.code).to.eql(401));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}x",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "fld_04",
+      "_type": "request_group",
+      "parentId": "wrk_verity",
+      "name": "04 · Linha de base do consolidado",
+      "description": "Lê os saldos antes dos lançamentos desta execução. As consultas usam o parâmetro `leitura` para não reaproveitar a resposta em cache (5 s).",
+      "metaSortKey": 1200,
+      "environment": {}
+    },
+    {
+      "_id": "req_009",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "Saldo de hoje (antes)",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/consolidado/diario/{{ _.data_hoje }}?leitura={{ _.leitura }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 1300,
+      "preRequestScript": "insomnia.collectionVariables.set('leitura', String(Date.now()));",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\nconst saldo = insomnia.response.json();\ninsomnia.collectionVariables.set('base_saldo_final_hoje', String(saldo.saldoFinal));\ninsomnia.collectionVariables.set('base_creditos_hoje', String(saldo.totalCreditos));\ninsomnia.collectionVariables.set('base_debitos_hoje', String(saldo.totalDebitos));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_010",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "Saldo do dia retroativo (antes)",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/consolidado/diario/{{ _.data_retroativa }}?leitura={{ _.leitura }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 1400,
+      "preRequestScript": "insomnia.collectionVariables.set('leitura', String(Date.now()));",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\ninsomnia.collectionVariables.set('base_saldo_final_retroativo', String(insomnia.response.json().saldoFinal));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "fld_05",
+      "_type": "request_group",
+      "parentId": "wrk_verity",
+      "name": "05 · Lançamentos",
+      "description": "Registra um crédito e um débito hoje e um crédito retroativo (D-3), consulta por id e o extrato do período.",
+      "metaSortKey": 1500,
+      "environment": {}
+    },
+    {
+      "_id": "req_011",
+      "_type": "request",
+      "parentId": "fld_05",
+      "name": "Registrar crédito de 1.000,00 (hoje)",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-credito-hoje"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": 1600,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Lançamento criado (201)', () => insomnia.expect(insomnia.response.code).to.eql(201));\nconst corpo = insomnia.response.json();\ninsomnia.collectionVariables.set('id_credito_hoje', corpo.id);\nconst location = insomnia.response.headers.get('Location');\ninsomnia.test('Location aponta para o lançamento', () => insomnia.expect(String(location?.value ?? location)).to.include('/lancamentos/' + corpo.id));\ninsomnia.test('Tipo e valor gravados', () => { insomnia.expect(corpo.tipo).to.eql('Credito'); insomnia.expect(corpo.valor).to.eql(1000); });",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tipo\": \"Credito\",\n  \"valor\": 1000.0,\n  \"dataCompetencia\": \"{{ _.data_hoje }}\",\n  \"descricao\": \"Venda à vista\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_012",
+      "_type": "request",
+      "parentId": "fld_05",
+      "name": "Registrar débito de 250,50 (hoje)",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-debito-hoje"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": 1700,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Lançamento criado (201)', () => insomnia.expect(insomnia.response.code).to.eql(201));\ninsomnia.collectionVariables.set('id_debito_hoje', insomnia.response.json().id);",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tipo\": \"Debito\",\n  \"valor\": 250.5,\n  \"dataCompetencia\": \"{{ _.data_hoje }}\",\n  \"descricao\": \"Pagamento de fornecedor\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_013",
+      "_type": "request",
+      "parentId": "fld_05",
+      "name": "Registrar crédito retroativo de 300,00 (D-3)",
+      "description": "Lançamento retroativo: o consolidado deve propagar a diferença para todos os dias seguintes.",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-credito-retroativo"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": 1800,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Lançamento criado (201)', () => insomnia.expect(insomnia.response.code).to.eql(201));\ninsomnia.collectionVariables.set('id_credito_retroativo', insomnia.response.json().id);",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tipo\": \"Credito\",\n  \"valor\": 300.0,\n  \"dataCompetencia\": \"{{ _.data_retroativa }}\",\n  \"descricao\": \"Venda registrada com atraso\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_014",
+      "_type": "request",
+      "parentId": "fld_05",
+      "name": "Obter o crédito por id",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/lancamentos/{{ _.id_credito_hoje }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 1900,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\ninsomnia.test('Devolve o lançamento registrado', () => insomnia.expect(insomnia.response.json().id).to.eql(insomnia.collectionVariables.get('id_credito_hoje')));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_015",
+      "_type": "request",
+      "parentId": "fld_05",
+      "name": "Extrato do período",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/lancamentos?inicio={{ _.data_inicio_do_periodo }}&fim={{ _.data_hoje }}&pagina=1&tamanhoDaPagina=100",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 2000,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\nconst pagina = insomnia.response.json();\ninsomnia.test('Extrato paginado', () => { insomnia.expect(pagina.pagina).to.eql(1); insomnia.expect(pagina.totalDeItens).to.be.at.least(3); });\nif (pagina.totalDeItens <= 100) {\n    const ids = pagina.itens.map(item => item.id);\n    insomnia.test('Extrato contém os três lançamentos desta execução', () => {\n        ['id_credito_hoje', 'id_debito_hoje', 'id_credito_retroativo'].forEach(nome => insomnia.expect(ids).to.include(insomnia.collectionVariables.get(nome)));\n    });\n}",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "fld_06",
+      "_type": "request_group",
+      "parentId": "wrk_verity",
+      "name": "06 · Idempotência e estorno",
+      "description": "Repetições com a mesma Idempotency-Key devolvem o mesmo resultado sem duplicar; lançamentos são imutáveis e corrigidos por estorno.",
+      "metaSortKey": 2100,
+      "environment": {}
+    },
+    {
+      "_id": "req_016",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Repetir o crédito com a mesma chave → 200, mesmo id",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-credito-hoje"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": 2200,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Repetição responde 200 (não cria outro)', () => insomnia.expect(insomnia.response.code).to.eql(200));\ninsomnia.test('Devolve o mesmo lançamento', () => insomnia.expect(insomnia.response.json().id).to.eql(insomnia.collectionVariables.get('id_credito_hoje')));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tipo\": \"Credito\",\n  \"valor\": 1000.0,\n  \"dataCompetencia\": \"{{ _.data_hoje }}\",\n  \"descricao\": \"Venda à vista\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_017",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Mesma chave com outro conteúdo → 422",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-credito-hoje"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": 2300,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 422', () => insomnia.expect(insomnia.response.code).to.eql(422));\ninsomnia.test('Problem Details com o erro CHAVE_DE_IDEMPOTENCIA_REUTILIZADA_COM_CONTEUDO_DIFERENTE', () => insomnia.expect(insomnia.response.json().erros).to.include('CHAVE_DE_IDEMPOTENCIA_REUTILIZADA_COM_CONTEUDO_DIFERENTE'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tipo\": \"Credito\",\n  \"valor\": 999.99,\n  \"dataCompetencia\": \"{{ _.data_hoje }}\",\n  \"descricao\": \"Venda à vista\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_018",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Sem Idempotency-Key → 400",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": 2400,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 400', () => insomnia.expect(insomnia.response.code).to.eql(400));\ninsomnia.test('Problem Details com o erro CHAVE_DE_IDEMPOTENCIA_OBRIGATORIA', () => insomnia.expect(insomnia.response.json().erros).to.include('CHAVE_DE_IDEMPOTENCIA_OBRIGATORIA'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tipo\": \"Credito\",\n  \"valor\": 10.0,\n  \"dataCompetencia\": \"{{ _.data_hoje }}\",\n  \"descricao\": \"Sem chave\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_019",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Estornar o débito → 201",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos/{{ _.id_debito_hoje }}/estornos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-estorno-debito"
+        }
+      ],
+      "metaSortKey": 2500,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Estorno criado (201)', () => insomnia.expect(insomnia.response.code).to.eql(201));\nconst estorno = insomnia.response.json();\ninsomnia.collectionVariables.set('id_estorno_debito', estorno.id);\ninsomnia.test('Estorno é um crédito de mesmo valor ligado ao débito', () => {\n    insomnia.expect(estorno.tipo).to.eql('Credito');\n    insomnia.expect(estorno.valor).to.eql(250.5);\n    insomnia.expect(estorno.estornoDeId).to.eql(insomnia.collectionVariables.get('id_debito_hoje'));\n});",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_020",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Repetir o estorno com a mesma chave → 200",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos/{{ _.id_debito_hoje }}/estornos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-estorno-debito"
+        }
+      ],
+      "metaSortKey": 2600,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\ninsomnia.test('Devolve o mesmo estorno', () => insomnia.expect(insomnia.response.json().id).to.eql(insomnia.collectionVariables.get('id_estorno_debito')));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_021",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Estornar o débito de novo → 409",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos/{{ _.id_debito_hoje }}/estornos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-estorno-debito-segunda-vez"
+        }
+      ],
+      "metaSortKey": 2700,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 409', () => insomnia.expect(insomnia.response.code).to.eql(409));\ninsomnia.test('Problem Details com o erro LANCAMENTO_JA_ESTORNADO', () => insomnia.expect(insomnia.response.json().erros).to.include('LANCAMENTO_JA_ESTORNADO'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_022",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Estornar um estorno → 409",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos/{{ _.id_estorno_debito }}/estornos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-estorno-do-estorno"
+        }
+      ],
+      "metaSortKey": 2800,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 409', () => insomnia.expect(insomnia.response.code).to.eql(409));\ninsomnia.test('Problem Details com o erro ESTORNO_NAO_PODE_SER_ESTORNADO', () => insomnia.expect(insomnia.response.json().erros).to.include('ESTORNO_NAO_PODE_SER_ESTORNADO'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "fld_07",
+      "_type": "request_group",
+      "parentId": "wrk_verity",
+      "name": "07 · Validações de negócio",
+      "description": "Entradas inválidas são recusadas com códigos de erro estáveis.",
+      "metaSortKey": 2900,
+      "environment": {}
+    },
+    {
+      "_id": "req_023",
+      "_type": "request",
+      "parentId": "fld_07",
+      "name": "Data de competência futura → 400",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-data-futura"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": 3000,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 400', () => insomnia.expect(insomnia.response.code).to.eql(400));\ninsomnia.test('Problem Details com o erro DATA_DE_COMPETENCIA_NO_FUTURO', () => insomnia.expect(insomnia.response.json().erros).to.include('DATA_DE_COMPETENCIA_NO_FUTURO'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tipo\": \"Credito\",\n  \"valor\": 10.0,\n  \"dataCompetencia\": \"{{ _.data_futura }}\",\n  \"descricao\": \"Data futura\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_024",
+      "_type": "request",
+      "parentId": "fld_07",
+      "name": "Valor zero → 400",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-valor-zero"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": 3100,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 400', () => insomnia.expect(insomnia.response.code).to.eql(400));\ninsomnia.test('Problem Details com o erro VALOR_DO_LANCAMENTO_DEVE_SER_POSITIVO', () => insomnia.expect(insomnia.response.json().erros).to.include('VALOR_DO_LANCAMENTO_DEVE_SER_POSITIVO'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tipo\": \"Debito\",\n  \"valor\": 0,\n  \"dataCompetencia\": \"{{ _.data_hoje }}\",\n  \"descricao\": \"Valor zero\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_025",
+      "_type": "request",
+      "parentId": "fld_07",
+      "name": "Valor com três casas decimais → 400",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-tres-casas"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": 3200,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 400', () => insomnia.expect(insomnia.response.code).to.eql(400));\ninsomnia.test('Problem Details com o erro VALOR_DO_LANCAMENTO_COM_MAIS_DE_DUAS_CASAS_DECIMAIS', () => insomnia.expect(insomnia.response.json().erros).to.include('VALOR_DO_LANCAMENTO_COM_MAIS_DE_DUAS_CASAS_DECIMAIS'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tipo\": \"Debito\",\n  \"valor\": 10.005,\n  \"dataCompetencia\": \"{{ _.data_hoje }}\",\n  \"descricao\": \"Três casas\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_026",
+      "_type": "request",
+      "parentId": "fld_07",
+      "name": "Tipo inválido → 400",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-tipo-invalido"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": 3300,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 400', () => insomnia.expect(insomnia.response.code).to.eql(400));\ninsomnia.test('Problem Details com o erro TIPO_DE_LANCAMENTO_INVALIDO', () => insomnia.expect(insomnia.response.json().erros).to.include('TIPO_DE_LANCAMENTO_INVALIDO'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tipo\": \"Transferencia\",\n  \"valor\": 10.0,\n  \"dataCompetencia\": \"{{ _.data_hoje }}\",\n  \"descricao\": \"Tipo inválido\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_027",
+      "_type": "request",
+      "parentId": "fld_07",
+      "name": "Extrato acima de 93 dias → 400",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/lancamentos?inicio=2026-01-01&fim=2026-06-30",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 3400,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 400', () => insomnia.expect(insomnia.response.code).to.eql(400));\ninsomnia.test('Problem Details com o erro PERIODO_ACIMA_DO_LIMITE', () => insomnia.expect(insomnia.response.json().erros).to.include('PERIODO_ACIMA_DO_LIMITE'));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "fld_08",
+      "_type": "request_group",
+      "parentId": "wrk_verity",
+      "name": "08 · Isolamento entre comerciantes",
+      "description": "A loja.praia (c-002) não enxerga nem altera dados da loja.centro (c-001).",
+      "metaSortKey": 3500,
+      "environment": {}
+    },
+    {
+      "_id": "req_028",
+      "_type": "request",
+      "parentId": "fld_08",
+      "name": "loja.praia lê lançamento da loja.centro → 404",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/lancamentos/{{ _.id_credito_hoje }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 3600,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 404', () => insomnia.expect(insomnia.response.code).to.eql(404));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_praia }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_029",
+      "_type": "request",
+      "parentId": "fld_08",
+      "name": "loja.praia estorna lançamento da loja.centro → 404",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos/{{ _.id_credito_hoje }}/estornos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-estorno-por-outra-loja"
+        }
+      ],
+      "metaSortKey": 3700,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 404', () => insomnia.expect(insomnia.response.code).to.eql(404));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_praia }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_030",
+      "_type": "request",
+      "parentId": "fld_08",
+      "name": "Extrato da loja.praia não traz lançamentos da loja.centro",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/lancamentos?inicio={{ _.data_inicio_do_periodo }}&fim={{ _.data_hoje }}&tamanhoDaPagina=100",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 3800,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\nconst ids = insomnia.response.json().itens.map(item => item.id);\ninsomnia.test('Nenhum lançamento da loja.centro aparece', () =>\n    ['id_credito_hoje', 'id_debito_hoje', 'id_credito_retroativo'].forEach(nome => insomnia.expect(ids).to.not.include(insomnia.collectionVariables.get(nome))));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_praia }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "fld_09",
+      "_type": "request_group",
+      "parentId": "wrk_verity",
+      "name": "09 · Consolidado diário",
+      "description": "Confere o saldo consolidado depois do processamento assíncrono (outbox → RabbitMQ → worker). A primeira requisição aguarda 4 s antes de consultar.",
+      "metaSortKey": 3900,
+      "environment": {}
+    },
+    {
+      "_id": "req_031",
+      "_type": "request",
+      "parentId": "fld_09",
+      "name": "Saldo de hoje reflete os lançamentos",
+      "description": "Esperado: saldo final = linha de base + 1.000,00 − 250,50 + 250,50 (estorno) + 300,00 (retroativo propagado) = linha de base + 1.300,00.",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/consolidado/diario/{{ _.data_hoje }}?leitura={{ _.leitura }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 4000,
+      "preRequestScript": "insomnia.collectionVariables.set('leitura', String(Date.now()));\nawait new Promise(resolve => setTimeout(resolve, 4000));",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\nconst centavos = valor => Math.round(Number(valor) * 100);\nconst variavel = nome => insomnia.collectionVariables.get(nome);\nconst saldo = insomnia.response.json();\ninsomnia.test('Saldo final = base + 1.300,00', () => insomnia.expect(centavos(saldo.saldoFinal)).to.eql(centavos(variavel('base_saldo_final_hoje')) + 130000));\ninsomnia.test('Créditos do dia = base + 1.250,50', () => insomnia.expect(centavos(saldo.totalCreditos)).to.eql(centavos(variavel('base_creditos_hoje')) + 125050));\ninsomnia.test('Débitos do dia = base + 250,50', () => insomnia.expect(centavos(saldo.totalDebitos)).to.eql(centavos(variavel('base_debitos_hoje')) + 25050));\ninsomnia.test('Saldo inicial + créditos − débitos = saldo final', () =>\n    insomnia.expect(centavos(saldo.saldoInicial) + centavos(saldo.totalCreditos) - centavos(saldo.totalDebitos)).to.eql(centavos(saldo.saldoFinal)));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_032",
+      "_type": "request",
+      "parentId": "fld_09",
+      "name": "Saldo do dia retroativo",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/consolidado/diario/{{ _.data_retroativa }}?leitura={{ _.leitura }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 4100,
+      "preRequestScript": "insomnia.collectionVariables.set('leitura', String(Date.now()));",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\nconst centavos = valor => Math.round(Number(valor) * 100);\nconst variavel = nome => insomnia.collectionVariables.get(nome);\ninsomnia.test('Saldo final do dia retroativo = base + 300,00', () =>\n    insomnia.expect(centavos(insomnia.response.json().saldoFinal)).to.eql(centavos(variavel('base_saldo_final_retroativo')) + 30000));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_033",
+      "_type": "request",
+      "parentId": "fld_09",
+      "name": "Saldos do período (dias sem movimento preenchidos)",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/consolidado/diario?inicio={{ _.data_inicio_do_periodo }}&fim={{ _.data_hoje }}&leitura={{ _.leitura }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 4200,
+      "preRequestScript": "insomnia.collectionVariables.set('leitura', String(Date.now()));",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\nconst centavos = valor => Math.round(Number(valor) * 100);\nconst variavel = nome => insomnia.collectionVariables.get(nome);\nconst dias = insomnia.response.json();\ninsomnia.test('Um item por dia do período (7 dias)', () => insomnia.expect(dias.length).to.eql(7));\ninsomnia.test('Saldo inicial de cada dia = saldo final do dia anterior', () => {\n    for (let indice = 1; indice < dias.length; indice++)\n        insomnia.expect(centavos(dias[indice].saldoInicial)).to.eql(centavos(dias[indice - 1].saldoFinal));\n});\ninsomnia.test('Último dia do período = saldo de hoje', () =>\n    insomnia.expect(centavos(dias[dias.length - 1].saldoFinal)).to.eql(centavos(variavel('base_saldo_final_hoje')) + 130000));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_034",
+      "_type": "request",
+      "parentId": "fld_09",
+      "name": "Saldo da loja.praia não muda com lançamentos da loja.centro",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/consolidado/diario/{{ _.data_hoje }}?leitura={{ _.leitura }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 4300,
+      "preRequestScript": "insomnia.collectionVariables.set('leitura', String(Date.now()));",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\ninsomnia.test('Saldo pertence ao comerciante c-002 (sem os 1.300,00 da loja.centro)', () =>\n    insomnia.expect(Number(insomnia.response.json().saldoFinal)).to.not.eql(Number(insomnia.collectionVariables.get('base_saldo_final_hoje')) + 1300));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_praia }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "fld_10",
+      "_type": "request_group",
+      "parentId": "wrk_verity",
+      "name": "10 · Resiliência (manual — fora do runner)",
+      "description": "Demonstra os requisitos não funcionais. Execute uma requisição por vez, seguindo a instrução da descrição de cada uma. Antes de começar, rode as pastas 01 e 02 (tokens válidos por 30 minutos).\n\nComandos usados (na raiz do repositório):\n- `docker compose stop consolidado-api-1`\n- `docker compose stop consolidado-api-2 consolidado-worker`\n- `docker compose start consolidado-api-1 consolidado-api-2 consolidado-worker`",
+      "metaSortKey": 4400,
+      "environment": {}
+    },
+    {
+      "_id": "req_035",
+      "_type": "request",
+      "parentId": "fld_10",
+      "name": "1. Saldo de hoje antes da queda",
+      "description": "Guarda a linha de base desta demonstração. Depois execute `docker compose stop consolidado-api-1`.",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/consolidado/diario/{{ _.data_hoje }}?leitura={{ _.leitura }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 4500,
+      "preRequestScript": "insomnia.collectionVariables.set('leitura', String(Date.now()));",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\ninsomnia.collectionVariables.set('base_resiliencia', String(insomnia.response.json().saldoFinal));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_036",
+      "_type": "request",
+      "parentId": "fld_10",
+      "name": "2. Uma réplica fora: consolidado continua respondendo",
+      "description": "Com `consolidado-api-1` parada, o YARP desvia para `consolidado-api-2` (health check passivo e ativo). Envie algumas vezes: todas devem dar 200. Em seguida execute `docker compose stop consolidado-api-2 consolidado-worker`.",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/consolidado/diario/{{ _.data_hoje }}?leitura={{ _.leitura }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 4600,
+      "preRequestScript": "insomnia.collectionVariables.set('leitura', String(Date.now()));",
+      "afterResponseScript": "insomnia.test('Gateway atende pela réplica restante', () => insomnia.expect(insomnia.response.code).to.eql(200));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_037",
+      "_type": "request",
+      "parentId": "fld_10",
+      "name": "3. Consolidado inteiro fora: lançamentos continuam",
+      "description": "Requisito principal: o serviço de lançamentos não depende da disponibilidade do consolidado. O evento fica no outbox e na fila até o worker voltar.",
+      "method": "POST",
+      "url": "{{ _.gateway_url }}/lancamentos",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Idempotency-Key",
+          "value": "roteiro-{{ _.execucao }}-resiliencia"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": 4700,
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Lançamento registrado mesmo com o consolidado fora (201)', () => insomnia.expect(insomnia.response.code).to.eql(201));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tipo\": \"Credito\",\n  \"valor\": 500.0,\n  \"dataCompetencia\": \"{{ _.data_hoje }}\",\n  \"descricao\": \"Venda com consolidado fora do ar\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_038",
+      "_type": "request",
+      "parentId": "fld_10",
+      "name": "4. Consulta ao consolidado falha de forma controlada",
+      "description": "Sem nenhuma réplica, o gateway responde 502 ou 503 sem afetar a rota de lançamentos. Depois execute `docker compose start consolidado-api-1 consolidado-api-2 consolidado-worker` e aguarde uns 10 segundos.",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/consolidado/diario/{{ _.data_hoje }}?leitura={{ _.leitura }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 4800,
+      "preRequestScript": "insomnia.collectionVariables.set('leitura', String(Date.now()));",
+      "afterResponseScript": "insomnia.test('Gateway responde 502 ou 503', () => insomnia.expect([502, 503]).to.include(insomnia.response.code));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    },
+    {
+      "_id": "req_039",
+      "_type": "request",
+      "parentId": "fld_10",
+      "name": "5. Após a retomada, o crédito é consolidado",
+      "description": "O worker consome a fila acumulada e o saldo passa a incluir os 500,00 registrados durante a queda. Se ainda não refletir, reenvie em alguns segundos.",
+      "method": "GET",
+      "url": "{{ _.gateway_url }}/consolidado/diario/{{ _.data_hoje }}?leitura={{ _.leitura }}",
+      "parameters": [],
+      "headers": [],
+      "metaSortKey": 4900,
+      "preRequestScript": "insomnia.collectionVariables.set('leitura', String(Date.now()));",
+      "afterResponseScript": "insomnia.test('Status 200', () => insomnia.expect(insomnia.response.code).to.eql(200));\nconst centavos = valor => Math.round(Number(valor) * 100);\nconst variavel = nome => insomnia.collectionVariables.get(nome);\ninsomnia.test('Saldo final = base da demonstração + 500,00', () =>\n    insomnia.expect(centavos(insomnia.response.json().saldoFinal)).to.eql(centavos(variavel('base_resiliencia')) + 50000));",
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token_loja_centro }}",
+        "prefix": "",
+        "disabled": false
+      }
+    }
+  ]
+}
