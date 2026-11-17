@@ -1,4 +1,4 @@
-# Verity — Fluxo de Caixa
+# Desafio Verity — Fluxo de Caixa
 
 Solução para o desafio de arquitetura de software da Verity: um comerciante registra **lançamentos** (débitos e créditos) e consulta o **saldo diário consolidado**.
 
